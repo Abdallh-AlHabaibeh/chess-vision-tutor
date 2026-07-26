@@ -19,6 +19,10 @@ from chess_vision_tutor.board_processing import (
     resize_image,
     warp_board,
 )
+from chess_vision_tutor.square_extraction import (
+    extract_board_squares,
+    save_square_crops,
+)
 
 
 def display_image(
@@ -36,7 +40,6 @@ def print_image_information(
     resized_image: np.ndarray,
     processed_image: np.ndarray,
 ) -> None:
-
     print("Image loaded and preprocessed successfully.")
     print(f"Original shape: {original_image.shape}")
     print(f"Resized shape: {resized_image.shape}")
@@ -55,8 +58,8 @@ def print_board_information(
     complete_vertical_boundaries: list[int],
     complete_horizontal_boundaries: list[int],
     playable_board: np.ndarray,
+    board_squares: dict[str, np.ndarray],
 ) -> None:
-    
     print("Chessboard contour detected successfully.")
     print(
         "Detected corners: "
@@ -92,6 +95,9 @@ def print_board_information(
         f"{complete_horizontal_boundaries}"
     )
     print(f"Playable board shape: {playable_board.shape}")
+    print(f"Extracted square count: {len(board_squares)}")
+    print(f"a8 square shape: {board_squares['a8'].shape}")
+    print(f"h1 square shape: {board_squares['h1'].shape}")
 
 
 def wait_for_windows() -> None:
@@ -100,7 +106,7 @@ def wait_for_windows() -> None:
 
 
 def main() -> None:
-    image_path = Path("data/raw/board5_test.jpg")
+    image_path = Path("data/raw/board1_test.jpg")
 
     image = load_image(image_path)
     resized_image = resize_image(image)
@@ -210,6 +216,15 @@ def main() -> None:
         complete_horizontal_boundaries,
     )
 
+    board_squares = extract_board_squares(
+        playable_board,
+    )
+
+    save_square_crops(
+        board_squares,
+        "data/processed/squares",
+    )
+
     supported_grid_image = (
         draw_supported_grid_positions(
             warped_board,
@@ -245,6 +260,7 @@ def main() -> None:
         complete_vertical_boundaries,
         complete_horizontal_boundaries,
         playable_board,
+        board_squares,
     )
 
     display_image(
@@ -280,6 +296,26 @@ def main() -> None:
     display_image(
         "Cropped Playable Board",
         playable_board,
+    )
+
+    display_image(
+        "Square a8",
+        board_squares["a8"],
+    )
+
+    display_image(
+        "Square h8",
+        board_squares["h8"],
+    )
+
+    display_image(
+        "Square a1",
+        board_squares["a1"],
+    )
+
+    display_image(
+        "Square h1",
+        board_squares["h1"],
     )
 
     wait_for_windows()
