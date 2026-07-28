@@ -23,5 +23,15 @@ Thumbs.db
 # Logs
 *.log
 
-#Data
+# Data
 data/processed/
+data/dataset/
+data/classification_dataset/
+
+# Generated outputs
+outputs/
+
+# Model outputs
+models/
+runs/
+*.pt
