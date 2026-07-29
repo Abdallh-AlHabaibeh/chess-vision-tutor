@@ -7,6 +7,9 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.5.1",
     "opencv-python>=5.0.0.93",
+    "torch>=2.13.0",
+    "torchvision>=0.28.0",
+    "ultralytics>=8.4.107",
 ]
 
 [build-system]
@@ -18,3 +21,12 @@ packages = ["src/chess_vision_tutor"]
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true

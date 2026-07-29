@@ -1,4 +1,4 @@
-"""Core chessboard detection and perspective-warping utilities.
+"""Core chessboard detection and perspective warping utilities.
 
 This module is responsible only for:
 
@@ -22,22 +22,6 @@ import numpy as np
 
 
 def load_image(image_path: str | Path) -> np.ndarray:
-    """Load an image from disk.
-
-    Args:
-        image_path:
-            Path to the image file.
-
-    Returns:
-        The loaded OpenCV BGR image.
-
-    Raises:
-        FileNotFoundError:
-            If the file does not exist.
-
-        ValueError:
-            If OpenCV cannot decode the image.
-    """
     image_path = Path(image_path)
 
     if not image_path.exists():
@@ -59,10 +43,6 @@ def resize_image(
     image: np.ndarray,
     max_dimension: int = 1200,
 ) -> np.ndarray:
-    """Resize an image while preserving its aspect ratio.
-
-    Images smaller than `max_dimension` are returned unchanged.
-    """
     if image is None or image.size == 0:
         raise ValueError(
             "Cannot resize an empty image."
@@ -94,15 +74,6 @@ def resize_image(
 def preprocess_image(
     image: np.ndarray,
 ) -> np.ndarray:
-    """Prepare an image for chessboard contour detection.
-
-    Processing steps:
-
-    1. Convert to grayscale.
-    2. Apply Gaussian blur.
-    3. Detect edges using Canny.
-    4. Apply morphological closing to connect nearby edges.
-    """
     if image is None or image.size == 0:
         raise ValueError(
             "Cannot preprocess an empty image."
@@ -142,13 +113,6 @@ def preprocess_image(
 def detect_board_contour(
     edge_image: np.ndarray,
 ) -> np.ndarray | None:
-    """Detect a large four-sided contour representing the chessboard.
-
-    The function first tests the contour approximation directly.
-
-    If the contour itself does not produce a valid quadrilateral, its
-    convex hull is tested as a fallback.
-    """
     if edge_image is None or edge_image.size == 0:
         raise ValueError(
             "Cannot detect a board in an empty image."

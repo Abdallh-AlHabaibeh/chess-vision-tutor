@@ -11,17 +11,27 @@ RANKS = "87654321"
 
 def extract_board_squares(
     playable_board: np.ndarray,
+    padding: int = 20,
 ) -> dict[str, np.ndarray]:
     """
-    Split a normalized playable chessboard into 64 labeled square crops.
+    Split a normalized playable chessboard into 64 padded square crops.
 
     The board is assumed to be oriented with:
         top-left = a8
         bottom-right = h1
+
+    Each crop contains the logical square plus additional surrounding
+    context. Border padding is added first so edge and corner squares
+    still produce crops with identical dimensions.
     """
     if playable_board is None or playable_board.size == 0:
         raise ValueError(
             "Cannot extract squares from an empty board."
+        )
+
+    if padding < 0:
+        raise ValueError(
+            "Padding cannot be negative."
         )
 
     board_height, board_width = playable_board.shape[:2]
@@ -39,20 +49,54 @@ def extract_board_squares(
     square_height = board_height // GRID_SIZE
     square_width = board_width // GRID_SIZE
 
+    padded_board = cv2.copyMakeBorder(
+        playable_board,
+        padding,
+        padding,
+        padding,
+        padding,
+        borderType=cv2.BORDER_REPLICATE,
+    )
+
     extracted_squares: dict[str, np.ndarray] = {}
 
     for row_index in range(GRID_SIZE):
         for column_index in range(GRID_SIZE):
-            top = row_index * square_height
-            bottom = (row_index + 1) * square_height
+            original_top = row_index * square_height
+            original_left = column_index * square_width
 
-            left = column_index * square_width
-            right = (column_index + 1) * square_width
+            padded_top = original_top
+            padded_left = original_left
 
-            square_image = playable_board[
-                top:bottom,
-                left:right,
+            padded_bottom = (
+                original_top
+                + square_height
+                + (2 * padding)
+            )
+
+            padded_right = (
+                original_left
+                + square_width
+                + (2 * padding)
+            )
+
+            square_image = padded_board[
+                padded_top:padded_bottom,
+                padded_left:padded_right,
             ].copy()
+
+            expected_height = square_height + (2 * padding)
+            expected_width = square_width + (2 * padding)
+
+            if square_image.shape[:2] != (
+                expected_height,
+                expected_width,
+            ):
+                raise RuntimeError(
+                    "Unexpected padded crop size for "
+                    f"row {row_index}, column {column_index}: "
+                    f"{square_image.shape[:2]}"
+                )
 
             square_name = (
                 f"{FILES[column_index]}"
