@@ -784,17 +784,15 @@ def infer_complete_chessboard_grid(
         horizontal_boundaries,
     )
 
-
-def crop_playable_board(
+def get_playable_board_bounds(
     warped_board: np.ndarray,
     vertical_boundaries: list[int],
     horizontal_boundaries: list[int],
-    output_size: int = 800,
-) -> np.ndarray:
-    """Crop the exact playable 8×8 region from the warped board."""
+) -> tuple[int, int, int, int]:
+    """Return the playable-board crop as left, right, top, bottom."""
     if warped_board is None or warped_board.size == 0:
         raise ValueError(
-            "Cannot crop an empty warped board."
+            "Cannot calculate bounds for an empty warped board."
         )
 
     if len(vertical_boundaries) != 9:
@@ -807,44 +805,26 @@ def crop_playable_board(
             "Nine horizontal boundaries are required."
         )
 
-    image_height, image_width = (
-        warped_board.shape[:2]
-    )
+    image_height, image_width = warped_board.shape[:2]
 
     left = max(
         0,
-        int(
-            round(
-                vertical_boundaries[0]
-            )
-        ),
+        int(round(vertical_boundaries[0])),
     )
 
     right = min(
         image_width - 1,
-        int(
-            round(
-                vertical_boundaries[-1]
-            )
-        ),
+        int(round(vertical_boundaries[-1])),
     )
 
     top = max(
         0,
-        int(
-            round(
-                horizontal_boundaries[0]
-            )
-        ),
+        int(round(horizontal_boundaries[0])),
     )
 
     bottom = min(
         image_height - 1,
-        int(
-            round(
-                horizontal_boundaries[-1]
-            )
-        ),
+        int(round(horizontal_boundaries[-1])),
     )
 
     if right <= left:
@@ -856,6 +836,28 @@ def crop_playable_board(
         raise ValueError(
             "Invalid vertical playable-board boundaries."
         )
+
+    return left, right, top, bottom
+
+def crop_playable_board(
+    warped_board: np.ndarray,
+    vertical_boundaries: list[int],
+    horizontal_boundaries: list[int],
+    output_size: int = 800,
+) -> np.ndarray:
+    """Crop the exact playable 8×8 region from the warped board."""
+    if output_size <= 0:
+        raise ValueError(
+            "Output size must be greater than zero."
+        )
+
+    left, right, top, bottom = (
+        get_playable_board_bounds(
+            warped_board,
+            vertical_boundaries,
+            horizontal_boundaries,
+        )
+    )
 
     playable_board = warped_board[
         top:bottom + 1,

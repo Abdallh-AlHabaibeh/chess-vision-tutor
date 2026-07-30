@@ -8,22 +8,17 @@ import numpy as np
 import torch
 from torchvision import transforms
 
-from chess_vision_tutor.chessred_processing import (
-    draw_target_overlay,
-)
-from chess_vision_tutor.grid_classifier import (
-    IMAGE_SIZE,
-    GridClassifier,
-)
+from chess_vision_tutor.chessred_processing import draw_target_overlay
+from chess_vision_tutor.grid_classifier import IMAGE_SIZE
 from chess_vision_tutor.main import process_board_image
-
+from experiments.swin.swin_grid_classifier import SwinGridClassifier
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 MODEL_PATH = (
     PROJECT_ROOT
     / "models"
-    / "grid_classifier_spatial.pt"
+    / "swin_grid_classifier.pt"
 )
 
 OUTPUT_DIR = (
@@ -32,13 +27,12 @@ OUTPUT_DIR = (
     / "local_inference"
 )
 
-LOW_CONFIDENCE_THRESHOLD = 0.70
-TOP_K_PREDICTIONS = 3
+LOW_CONFIDENCE_THRESHOLD = 0.85
 
 
 def load_model(
     device: torch.device,
-) -> GridClassifier:
+) -> SwinGridClassifier:
     if not MODEL_PATH.exists():
         raise FileNotFoundError(
             f"Model not found: {MODEL_PATH}"
@@ -50,7 +44,9 @@ def load_model(
         weights_only=True,
     )
 
-    model = GridClassifier().to(device)
+    model = SwinGridClassifier(
+        use_pretrained_weights=False,
+    ).to(device)
 
     model.load_state_dict(
         checkpoint["model_state_dict"]
@@ -89,12 +85,7 @@ def prepare_board_tensor(
 @torch.no_grad()
 def predict_board(
     image_path: Path,
-) -> tuple[
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-]:
+) -> tuple[np.ndarray, np.ndarray]:
     device = torch.device(
         "cuda"
         if torch.cuda.is_available()
@@ -120,44 +111,20 @@ def predict_board(
         dim=2,
     )
 
-    top_confidences, top_predictions = torch.topk(
-        probabilities,
-        k=TOP_K_PREDICTIONS,
+    confidences, predictions = probabilities.max(
         dim=2,
     )
 
     prediction = (
-        top_predictions[:, :, 0]
+        predictions
         .reshape(8, 8)
         .cpu()
         .numpy()
     )
 
     confidence_matrix = (
-        top_confidences[:, :, 0]
+        confidences
         .reshape(8, 8)
-        .cpu()
-        .numpy()
-    )
-
-    top_prediction_matrix = (
-        top_predictions
-        .reshape(
-            8,
-            8,
-            TOP_K_PREDICTIONS,
-        )
-        .cpu()
-        .numpy()
-    )
-
-    top_confidence_matrix = (
-        top_confidences
-        .reshape(
-            8,
-            8,
-            TOP_K_PREDICTIONS,
-        )
         .cpu()
         .numpy()
     )
@@ -174,7 +141,7 @@ def predict_board(
 
     output_path = (
         OUTPUT_DIR
-        / f"{image_path.stem}_prediction.jpg"
+        / f"{image_path.stem}_swin_prediction.jpg"
     )
 
     cv2.imwrite(
@@ -183,17 +150,16 @@ def predict_board(
     )
 
     low_confidence_squares = np.argwhere(
-        confidence_matrix
-        < LOW_CONFIDENCE_THRESHOLD
+        confidence_matrix < LOW_CONFIDENCE_THRESHOLD
     )
 
     print(f"Device: {device}")
     print(f"Input image: {image_path}")
     print()
-    print("Predicted matrix:")
+    print("Swin predicted matrix:")
     print(prediction)
     print()
-    print("Confidence matrix:")
+    print("Swin confidence matrix:")
     print(
         np.round(
             confidence_matrix,
@@ -215,25 +181,10 @@ def predict_board(
             f"{confidence_matrix[row, column]:.2%}"
         )
 
-        print(
-            "Top predictions: "
-            f"{top_prediction_matrix[row, column, 0]} "
-            f"({top_confidence_matrix[row, column, 0]:.2%}), "
-            f"{top_prediction_matrix[row, column, 1]} "
-            f"({top_confidence_matrix[row, column, 1]:.2%}), "
-            f"{top_prediction_matrix[row, column, 2]} "
-            f"({top_confidence_matrix[row, column, 2]:.2%})"
-        )
-
     print()
     print(f"Saved prediction: {output_path}")
 
-    return (
-        prediction,
-        confidence_matrix,
-        top_prediction_matrix,
-        top_confidence_matrix,
-    )
+    return prediction, confidence_matrix
 
 
 def parse_arguments() -> argparse.Namespace:

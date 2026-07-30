@@ -230,21 +230,14 @@ def order_board_corners(
 
     return ordered_points
 
-
-def warp_board(
-    image: np.ndarray,
+def create_board_transform(
     contour: np.ndarray,
     output_size: int = 800,
 ) -> np.ndarray:
-    """Transform a detected chessboard into a square top-down view."""
-    if image is None or image.size == 0:
-        raise ValueError(
-            "Cannot warp an empty image."
-        )
-
+    """Create the perspective transform from the detected board to a square."""
     if contour is None or contour.size == 0:
         raise ValueError(
-            "Cannot warp without a valid contour."
+            "Cannot create a transform without a valid contour."
         )
 
     if output_size <= 0:
@@ -266,10 +259,38 @@ def warp_board(
         dtype=np.float32,
     )
 
-    transform_matrix = cv2.getPerspectiveTransform(
+    return cv2.getPerspectiveTransform(
         source_points,
         destination_points,
     )
+
+def warp_board(
+    image: np.ndarray,
+    contour: np.ndarray,
+    output_size: int = 800,
+    transform_matrix: np.ndarray | None = None,
+) -> np.ndarray:
+    """Transform a detected chessboard into a square top-down view."""
+    if image is None or image.size == 0:
+        raise ValueError(
+            "Cannot warp an empty image."
+        )
+
+    if contour is None or contour.size == 0:
+        raise ValueError(
+            "Cannot warp without a valid contour."
+        )
+
+    if output_size <= 0:
+        raise ValueError(
+            "Output size must be greater than zero."
+        )
+
+    if transform_matrix is None:
+        transform_matrix = create_board_transform(
+            contour,
+            output_size,
+        )
 
     warped_board = cv2.warpPerspective(
         image,

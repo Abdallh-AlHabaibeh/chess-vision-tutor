@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 
 from chess_vision_tutor.board_processing import (
+    create_board_transform,
     detect_board_contour,
     load_image,
     preprocess_image,
@@ -17,6 +18,7 @@ from chess_vision_tutor.grid_reconstruction import (
     crop_playable_board,
     detect_checkerboard_corner_candidates,
     detect_joint_regular_grid_positions,
+    get_playable_board_bounds,
     infer_complete_chessboard_grid,
 )
 from chess_vision_tutor.square_extraction import (
@@ -51,7 +53,8 @@ def process_board_image(
     debug: bool = False,
     save_squares: bool = False,
     square_output_dir: str | Path = DEFAULT_SQUARE_OUTPUT_DIR,
-) -> np.ndarray:
+    return_metadata: bool = False,
+) -> np.ndarray | tuple[np.ndarray, dict[str, object]]:
     image = load_image(image_path)
     resized_image = resize_image(image)
     processed_image = preprocess_image(resized_image)
@@ -65,9 +68,14 @@ def process_board_image(
             "No chessboard contour was detected."
         )
 
+    transform_matrix = create_board_transform(
+        board_contour
+    )   
+
     warped_board = warp_board(
         resized_image,
         board_contour,
+        transform_matrix=transform_matrix,
     )
 
     corner_candidates = (
@@ -133,6 +141,12 @@ def process_board_image(
         warped_board,
         complete_vertical_boundaries,
         complete_horizontal_boundaries,
+    )
+
+    playable_bounds = get_playable_board_bounds(
+    warped_board,
+    complete_vertical_boundaries,
+    complete_horizontal_boundaries,
     )
 
     board_squares: dict[str, np.ndarray] | None = None
@@ -229,6 +243,15 @@ def process_board_image(
             )
 
         display_debug_images(debug_images)
+
+    if return_metadata:
+        metadata = {
+            "resized_image": resized_image,
+            "transform_matrix": transform_matrix,
+            "playable_bounds": playable_bounds,
+        }
+
+        return playable_board, metadata
 
     return playable_board
 
