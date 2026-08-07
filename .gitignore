@@ -35,3 +35,9 @@ outputs/
 models/
 runs/
 *.pt
+
+# Local secrets
+.streamlit/secrets.toml
+
+# Local Stockfish binary
+engines/stockfish/*.exe

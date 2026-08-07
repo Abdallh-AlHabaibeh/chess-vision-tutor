@@ -16,8 +16,8 @@ from chess_vision_tutor.yolo_board_inference import (
 EMPTY_CLASS = 12
 CONFIDENCE_THRESHOLD = 0.70
 
-SECOND_CHOICE_MIN_CONFIDENCE = 0.20
-TOP_TWO_MAX_CONFIDENCE_GAP = 0.25
+VERY_HIGH_CONFIDENCE = 0.991
+TOP_THREE_SUPPORT_MIN_CONFIDENCE = 0.10
 
 DEFAULT_YOLO_MODEL = Path(
     "runs/detect/outputs/yolo_15_epochs/"
@@ -38,7 +38,7 @@ def compare_predictions(
     list[dict[str, object]],
     list[dict[str, object]],
 ]:
-    accepted_matrix = model_1_prediction.copy()
+    proposed_matrix = model_1_prediction.copy()
 
     status_matrix = np.zeros(
         (8, 8),
@@ -71,26 +71,21 @@ def compare_predictions(
                 model_2_confidence[row, column]
             )
 
-            model_1_second_class = int(
-                model_1_top_predictions[
+            top_classes = [
+                int(value)
+                for value in model_1_top_predictions[
                     row,
                     column,
-                    1,
                 ]
-            )
+            ]
 
-            model_1_second_score = float(
-                model_1_top_confidences[
+            top_confidences = [
+                float(value)
+                for value in model_1_top_confidences[
                     row,
                     column,
-                    1,
                 ]
-            )
-
-            top_two_gap = (
-                model_1_score
-                - model_1_second_score
-            )
+            ]
 
             model_1_empty = (
                 model_1_class == EMPTY_CLASS
@@ -100,16 +95,37 @@ def compare_predictions(
                 model_2_class == EMPTY_CLASS
             )
 
-            model_2_matches_strong_second_choice = (
+            model_1_very_confident = (
+                model_1_score
+                >= VERY_HIGH_CONFIDENCE
+            )
+
+            model_2_very_confident = (
                 not model_2_empty
-                and model_2_class
-                == model_1_second_class
+                and model_2_score
+                >= VERY_HIGH_CONFIDENCE
+            )
+
+            model_2_top_three_support = 0.0
+
+            if model_2_class in top_classes:
+                model_2_index = top_classes.index(
+                    model_2_class
+                )
+
+                model_2_top_three_support = (
+                    top_confidences[
+                        model_2_index
+                    ]
+                )
+
+            model_2_matches_supported_candidate = (
+                not model_2_empty
+                and model_2_class in top_classes
                 and model_2_score
                 >= CONFIDENCE_THRESHOLD
-                and model_1_second_score
-                >= SECOND_CHOICE_MIN_CONFIDENCE
-                and top_two_gap
-                <= TOP_TWO_MAX_CONFIDENCE_GAP
+                and model_2_top_three_support
+                >= TOP_THREE_SUPPORT_MIN_CONFIDENCE
             )
 
             item = {
@@ -117,20 +133,10 @@ def compare_predictions(
                 "column": column,
                 "model_1_class": model_1_class,
                 "model_1_confidence": model_1_score,
-                "model_1_top_classes": [
-                    int(value)
-                    for value in model_1_top_predictions[
-                        row,
-                        column,
-                    ]
-                ],
-                "model_1_top_confidences": [
-                    float(value)
-                    for value in model_1_top_confidences[
-                        row,
-                        column,
-                    ]
-                ],
+                "model_1_top_classes": top_classes,
+                "model_1_top_confidences": (
+                    top_confidences
+                ),
                 "model_2_class": model_2_class,
                 "model_2_confidence": model_2_score,
             }
@@ -156,84 +162,23 @@ def compare_predictions(
                 continue
 
             if (
-                not model_1_empty
-                and not model_2_empty
+                model_1_class
+                == model_2_class
             ):
-                if model_1_class != model_2_class:
-                    if (
-                        model_2_matches_strong_second_choice
-                    ):
-                        item["reasons"] = [
-                            "Model 2 matches strong "
-                            "Model 1 second choice"
-                        ]
-
-                        warning_squares.append(
-                            item
-                        )
-
-                        status_matrix[
-                            row,
-                            column,
-                        ] = 1
-
-                    else:
-                        item["reasons"] = [
-                            "models disagree"
-                        ]
-
-                        required_review_squares.append(
-                            item
-                        )
-
-                        status_matrix[
-                            row,
-                            column,
-                        ] = 2
-
-                    continue
-
-                low_confidence_reasons: list[str] = []
-
-                if (
-                    model_1_score
-                    < CONFIDENCE_THRESHOLD
-                ):
-                    low_confidence_reasons.append(
-                        "low Model 1 confidence"
-                    )
-
-                if (
-                    model_2_score
-                    < CONFIDENCE_THRESHOLD
-                ):
-                    low_confidence_reasons.append(
-                        "low Model 2 confidence"
-                    )
-
-                if low_confidence_reasons:
-                    item["reasons"] = (
-                        low_confidence_reasons
-                    )
-
-                    warning_squares.append(
-                        item
-                    )
-
-                    status_matrix[
-                        row,
-                        column,
-                    ] = 1
+                proposed_matrix[
+                    row,
+                    column,
+                ] = model_1_class
 
                 continue
 
             if (
-                not model_1_empty
-                and model_2_empty
+                model_1_very_confident
+                and model_2_very_confident
             ):
                 item["reasons"] = [
-                    "Model 1 detected a piece but "
-                    "Model 2 did not"
+                    "both models are extremely "
+                    "confident but disagree"
                 ]
 
                 required_review_squares.append(
@@ -247,10 +192,60 @@ def compare_predictions(
 
                 continue
 
-            if model_2_matches_strong_second_choice:
+            if model_1_very_confident:
+                proposed_matrix[
+                    row,
+                    column,
+                ] = model_1_class
+
+                continue
+
+            if model_2_very_confident:
+                proposed_matrix[
+                    row,
+                    column,
+                ] = model_2_class
+
+                continue
+
+            if (
+                not model_1_empty
+                and model_2_empty
+            ):
+                proposed_matrix[
+                    row,
+                    column,
+                ] = model_1_class
+
+                if (
+                    model_1_score
+                    < CONFIDENCE_THRESHOLD
+                ):
+                    item["reasons"] = [
+                        "Model 2 missed the piece "
+                        "and Model 1 confidence is low"
+                    ]
+
+                    warning_squares.append(
+                        item
+                    )
+
+                    status_matrix[
+                        row,
+                        column,
+                    ] = 1
+
+                continue
+
+            if model_2_matches_supported_candidate:
+                proposed_matrix[
+                    row,
+                    column,
+                ] = model_2_class
+
                 item["reasons"] = [
-                    "Model 2 matches strong "
-                    "Model 1 second choice"
+                    "Model 2 matches a supported "
+                    "Model 1 top-three candidate"
                 ]
 
                 warning_squares.append(
@@ -264,9 +259,29 @@ def compare_predictions(
 
                 continue
 
+            if (
+                model_1_empty
+                and not model_2_empty
+            ):
+                item["reasons"] = [
+                    "Model 2 detected a piece "
+                    "without meaningful Model 1 support"
+                ]
+
+                required_review_squares.append(
+                    item
+                )
+
+                status_matrix[
+                    row,
+                    column,
+                ] = 2
+
+                continue
+
             item["reasons"] = [
-                "Model 2 detected a piece but "
-                "Model 1 predicted empty"
+                "models support different "
+                "occupied-piece classes"
             ]
 
             required_review_squares.append(
@@ -279,7 +294,7 @@ def compare_predictions(
             ] = 2
 
     return (
-        accepted_matrix,
+        proposed_matrix,
         status_matrix,
         warning_squares,
         required_review_squares,
@@ -288,8 +303,13 @@ def compare_predictions(
 
 def run_ensemble(
     image_path: Path,
-    yolo_model_path: Path,
-) -> None:
+    yolo_model_path: Path = DEFAULT_YOLO_MODEL,
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    list[dict[str, object]],
+    list[dict[str, object]],
+]:
     (
         model_1_prediction,
         model_1_confidence,
@@ -306,12 +326,7 @@ def run_ensemble(
         )
     )
 
-    (
-        accepted_matrix,
-        status_matrix,
-        warning_squares,
-        required_review_squares,
-    ) = compare_predictions(
+    return compare_predictions(
         model_1_prediction,
         model_1_confidence,
         model_1_top_predictions,
@@ -320,14 +335,23 @@ def run_ensemble(
         model_2_confidence,
     )
 
-    print("\nModel 1 matrix:")
-    print(model_1_prediction)
 
-    print("\nModel 2 matrix:")
-    print(model_2_prediction)
+def print_ensemble_results(
+    image_path: Path,
+    yolo_model_path: Path,
+) -> None:
+    (
+        proposed_matrix,
+        status_matrix,
+        warning_squares,
+        required_review_squares,
+    ) = run_ensemble(
+        image_path,
+        yolo_model_path,
+    )
 
-    print("\nCurrent accepted matrix:")
-    print(accepted_matrix)
+    print("\nProposed matrix:")
+    print(proposed_matrix)
 
     print("\nStatus matrix:")
     print(status_matrix)
@@ -365,17 +389,47 @@ def run_ensemble(
             item["reasons"]
         )
 
+        top_classes = item[
+            "model_1_top_classes"
+        ]
+
+        top_confidences = item[
+            "model_1_top_confidences"
+        ]
+
         print(
-            f"row={item['row']}, "
-            f"column={item['column']} | "
-            f"Model 1={item['model_1_class']} "
-            f"({item['model_1_confidence']:.2%}) | "
-            f"Model 1 second="
-            f"{item['model_1_top_classes'][1]} "
-            f"({item['model_1_top_confidences'][1]:.2%}) | "
-            f"Model 2={item['model_2_class']} "
-            f"({item['model_2_confidence']:.2%}) | "
-            f"{reasons}"
+            f"\nrow={item['row']}, "
+            f"column={item['column']}"
+        )
+
+        print(
+            "Model 1 top 3:"
+        )
+
+        for rank, (
+            piece_class,
+            confidence,
+        ) in enumerate(
+            zip(
+                top_classes,
+                top_confidences,
+            ),
+            start=1,
+        ):
+            print(
+                f"  {rank}. class={piece_class} | "
+                f"confidence={confidence:.2%}"
+            )
+
+        print(
+            f"Model 2: "
+            f"class={item['model_2_class']} | "
+            f"confidence="
+            f"{item['model_2_confidence']:.2%}"
+        )
+
+        print(
+            f"Reason: {reasons}"
         )
 
 
@@ -399,7 +453,7 @@ def parse_arguments() -> argparse.Namespace:
 def main() -> None:
     arguments = parse_arguments()
 
-    run_ensemble(
+    print_ensemble_results(
         arguments.image_path,
         arguments.yolo_model,
     )
