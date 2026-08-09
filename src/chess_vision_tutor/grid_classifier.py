@@ -119,7 +119,6 @@ class ChessReDGridDataset(Dataset):
             board_size=BOARD_SIZE,
         )
 
-        # OpenCV uses BGR, while torchvision expects RGB.
         warped_board_rgb = cv2.cvtColor(
             warped_board,
             cv2.COLOR_BGR2RGB,
@@ -400,14 +399,12 @@ def prepare_image_ids(
 
     validation_ids = list(validation_split["image_ids"])
 
-    # Find which annotation IDs actually exist in ChessReD2K.
     available_image_ids = {
         image_record["id"]
         for image_record in annotations["images"]
         if (CHESSRED_ROOT / image_record["path"]).exists()
     }
 
-    # Filter first, then shuffle and limit.
     train_ids = [
         image_id
         for image_id in train_ids

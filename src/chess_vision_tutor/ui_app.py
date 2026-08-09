@@ -155,14 +155,17 @@ def initialize_inference(
             required_review_squares
         )
         st.session_state.selected_square = None
+
         st.session_state.pop(
             "validation_result",
             None,
         )
+
         st.session_state.pop(
             "stockfish_result",
             None,
         )
+
         st.session_state.tutor_messages = []
 
     finally:
@@ -197,10 +200,12 @@ def clear_analysis_state() -> None:
         "validation_result",
         None,
     )
+
     st.session_state.pop(
         "stockfish_result",
         None,
     )
+
     st.session_state.tutor_messages = []
 
 
@@ -219,13 +224,13 @@ def clear_square_review(
 
     st.session_state.required_review_squares = [
         item
-        for item in st.session_state.required_review_squares
+        for item
+        in st.session_state.required_review_squares
         if not (
             int(item["row"]) == row
             and int(item["column"]) == column
         )
     ]
-
 
 
 def confirm_all_warnings() -> None:
@@ -243,21 +248,29 @@ def confirm_all_warnings() -> None:
         ][column] = 0
 
     st.session_state.warning_squares = []
+
     clear_analysis_state()
+
     st.session_state.selected_square = None
+
     st.session_state.pop(
         "manual_review_square",
         None,
     )
 
 
-
 def confidence_text(
     value: object,
 ) -> str:
     try:
-        confidence = float(value)
-    except (TypeError, ValueError):
+        confidence = float(
+            value
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
         return "—"
 
     return f"{confidence:.2%}"
@@ -269,58 +282,76 @@ def render_model_details(
     if review_item is None:
         return
 
-    model_1_class = int(
-        review_item["model_1_class"]
-    )
-    model_2_class = int(
-        review_item["model_2_class"]
+    resnet18_class = int(
+        review_item[
+            "resnet18_class"
+        ]
     )
 
-    first_column, second_column = st.columns(2)
+    yolo_class = int(
+        review_item[
+            "yolo_class"
+        ]
+    )
+
+    first_column, second_column = st.columns(
+        2
+    )
 
     with first_column:
         st.write(
-            "Model 1: "
-            f"**{PIECE_NAMES[model_1_class]}**"
+            "ResNet18: "
+            f"**{PIECE_NAMES[resnet18_class]}**"
         )
+
         st.caption(
             confidence_text(
                 review_item[
-                    "model_1_confidence"
+                    "resnet18_confidence"
                 ]
             )
         )
 
     with second_column:
-        if model_2_class == 12:
-            st.write("Model 2: **No detection**")
+        if yolo_class == 12:
+            st.write(
+                "YOLO11: **No detection**"
+            )
+
         else:
             st.write(
-                "Model 2: "
-                f"**{PIECE_NAMES[model_2_class]}**"
+                "YOLO11: "
+                f"**{PIECE_NAMES[yolo_class]}**"
             )
 
         st.caption(
             confidence_text(
                 review_item[
-                    "model_2_confidence"
+                    "yolo_confidence"
                 ]
             )
         )
 
     top_classes = review_item.get(
-        "model_1_top_classes",
-        [],
-    )
-    top_confidences = review_item.get(
-        "model_1_top_confidences",
+        "resnet18_top_classes",
         [],
     )
 
-    if top_classes and top_confidences:
+    top_confidences = review_item.get(
+        "resnet18_top_confidences",
+        [],
+    )
+
+    if (
+        top_classes
+        and top_confidences
+    ):
         alternatives = []
 
-        for piece_class, confidence in zip(
+        for (
+            piece_class,
+            confidence,
+        ) in zip(
             top_classes,
             top_confidences,
         ):
@@ -330,8 +361,10 @@ def render_model_details(
             )
 
         st.caption(
-            "Model 1 top predictions: "
-            + " · ".join(alternatives)
+            "ResNet18 top predictions: "
+            + " · ".join(
+                alternatives
+            )
         )
 
 
@@ -342,38 +375,56 @@ def create_piece_options(
     recommended: list[int] = []
 
     if review_item is not None:
-        model_1_class = int(
-            review_item["model_1_class"]
+        resnet18_class = int(
+            review_item[
+                "resnet18_class"
+            ]
         )
-        model_2_class = int(
-            review_item["model_2_class"]
+
+        yolo_class = int(
+            review_item[
+                "yolo_class"
+            ]
         )
 
         candidate_classes = [
-            model_1_class,
-            model_2_class,
+            yolo_class,
+            resnet18_class,
             *[
                 int(value)
                 for value in review_item.get(
-                    "model_1_top_classes",
+                    "resnet18_top_classes",
                     [],
                 )
             ],
         ]
 
         for piece_class in candidate_classes:
-            if piece_class not in recommended:
-                recommended.append(piece_class)
+            if (
+                piece_class
+                not in recommended
+            ):
+                recommended.append(
+                    piece_class
+                )
 
-    if current_class not in recommended:
+    if (
+        current_class
+        not in recommended
+    ):
         recommended.insert(
             0,
             current_class,
         )
 
     for piece_class in range(13):
-        if piece_class not in recommended:
-            recommended.append(piece_class)
+        if (
+            piece_class
+            not in recommended
+        ):
+            recommended.append(
+                piece_class
+            )
 
     return recommended
 
@@ -383,10 +434,12 @@ def finish_square_action(
     column: int,
 ) -> None:
     st.session_state.selected_square = None
+
     st.session_state.pop(
         "manual_review_square",
         None,
     )
+
     st.session_state.suppressed_board_click = (
         row,
         column,
@@ -394,8 +447,10 @@ def finish_square_action(
 
 
 def render_square_editor() -> None:
-    selected_square = st.session_state.get(
-        "selected_square"
+    selected_square = (
+        st.session_state.get(
+            "selected_square"
+        )
     )
 
     if selected_square is None:
@@ -403,6 +458,7 @@ def render_square_editor() -> None:
             "Click any square on the digital board "
             "to confirm or edit it."
         )
+
         return
 
     row, column = selected_square
@@ -447,12 +503,12 @@ def render_square_editor() -> None:
         )
 
         st.write(
-            f"Current piece: "
+            "Current piece: "
             f"**{PIECE_NAMES[current_class]}**"
         )
 
-        confirm_column, change_column = st.columns(
-            2
+        confirm_column, change_column = (
+            st.columns(2)
         )
 
         with confirm_column:
@@ -460,7 +516,10 @@ def render_square_editor() -> None:
                 "✓ Confirm current piece",
                 type="primary",
                 width="stretch",
-                key=f"confirm_{row}_{column}",
+                key=(
+                    f"confirm_"
+                    f"{row}_{column}"
+                ),
             ):
                 st.session_state.status_matrix[
                     row
@@ -472,24 +531,30 @@ def render_square_editor() -> None:
                     row,
                     column,
                 )
+
                 clear_analysis_state()
 
                 finish_square_action(
                     row,
                     column,
                 )
+
                 st.rerun()
 
         with change_column:
             if st.button(
                 "Change piece",
                 width="stretch",
-                key=f"show_change_{row}_{column}",
+                key=(
+                    f"show_change_"
+                    f"{row}_{column}"
+                ),
             ):
                 st.session_state.manual_review_square = (
                     row,
                     column,
                 )
+
                 st.rerun()
 
         return
@@ -498,7 +563,9 @@ def render_square_editor() -> None:
         0: "Accepted",
         1: "Warning",
         2: "Required review",
-    }[current_status]
+    }[
+        current_status
+    ]
 
     st.markdown(
         f"### Selected square — Row {row + 1}, "
@@ -506,7 +573,7 @@ def render_square_editor() -> None:
     )
 
     st.write(
-        f"Current piece: "
+        "Current piece: "
         f"**{PIECE_NAMES[current_class]}**"
     )
 
@@ -518,9 +585,11 @@ def render_square_editor() -> None:
         review_item
     )
 
-    piece_options = create_piece_options(
-        review_item,
-        current_class,
+    piece_options = (
+        create_piece_options(
+            review_item,
+            current_class,
+        )
     )
 
     selected_class = st.selectbox(
@@ -529,9 +598,9 @@ def render_square_editor() -> None:
         index=piece_options.index(
             current_class
         ),
-        format_func=lambda value: PIECE_NAMES[
-            value
-        ],
+        format_func=lambda value: (
+            PIECE_NAMES[value]
+        ),
         key=(
             f"piece_editor_"
             f"{st.session_state.image_hash}_"
@@ -539,20 +608,27 @@ def render_square_editor() -> None:
         ),
     )
 
-    button_column, cancel_column = st.columns(2)
+    button_column, cancel_column = (
+        st.columns(2)
+    )
 
     with button_column:
         if st.button(
             "Apply change",
             type="primary",
             width="stretch",
-            key=f"apply_{row}_{column}",
+            key=(
+                f"apply_"
+                f"{row}_{column}"
+            ),
         ):
             st.session_state.board_matrix[
                 row
             ][
                 column
-            ] = int(selected_class)
+            ] = int(
+                selected_class
+            )
 
             st.session_state.status_matrix[
                 row
@@ -564,27 +640,31 @@ def render_square_editor() -> None:
                 row,
                 column,
             )
+
             clear_analysis_state()
 
             finish_square_action(
                 row,
                 column,
             )
+
             st.rerun()
 
     with cancel_column:
         if st.button(
             "Cancel",
             width="stretch",
-            key=f"cancel_{row}_{column}",
+            key=(
+                f"cancel_"
+                f"{row}_{column}"
+            ),
         ):
             finish_square_action(
                 row,
                 column,
             )
+
             st.rerun()
-
-
 
 
 def render_tutor_chat(
@@ -593,12 +673,20 @@ def render_tutor_chat(
     stockfish_result: dict[str, object],
 ) -> None:
     st.divider()
-    st.subheader("Chess Tutor")
 
-    if "tutor_messages" not in st.session_state:
+    st.subheader(
+        "Chess Tutor"
+    )
+
+    if (
+        "tutor_messages"
+        not in st.session_state
+    ):
         st.session_state.tutor_messages = []
 
-    for message in st.session_state.tutor_messages:
+    for message in (
+        st.session_state.tutor_messages
+    ):
         with st.chat_message(
             message["role"]
         ):
@@ -620,56 +708,71 @@ def render_tutor_chat(
         }
     )
 
-    with st.chat_message("user"):
-        st.write(user_message)
+    with st.chat_message(
+        "user"
+    ):
+        st.write(
+            user_message
+        )
 
     try:
         api_key = st.secrets[
             "GEMINI_API_KEY"
         ]
+
         model_name = st.secrets[
             "GEMINI_MODEL"
         ]
 
-        with st.chat_message("assistant"):
+        with st.chat_message(
+            "assistant"
+        ):
             with st.spinner(
                 "Tutor is thinking..."
             ):
-                answer = ask_gemini_tutor(
-                    api_key=api_key,
-                    model_name=model_name,
-                    fen=str(
-                        validation_result["fen"]
-                    ),
-                    best_move_san=str(
-                        stockfish_result[
-                            "best_move_san"
-                        ]
-                    ),
-                    best_move_uci=str(
-                        stockfish_result[
-                            "best_move_uci"
-                        ]
-                    ),
-                    evaluation=str(
-                        stockfish_result[
-                            "evaluation"
-                        ]
-                    ),
-                    principal_variation=list(
-                        stockfish_result[
-                            "principal_variation_san"
-                        ]
-                    ),
-                    chat_history=(
-                        st.session_state.tutor_messages[
-                            :-1
-                        ]
-                    ),
-                    user_message=user_message,
+                answer = (
+                    ask_gemini_tutor(
+                        api_key=api_key,
+                        model_name=model_name,
+                        fen=str(
+                            validation_result[
+                                "fen"
+                            ]
+                        ),
+                        best_move_san=str(
+                            stockfish_result[
+                                "best_move_san"
+                            ]
+                        ),
+                        best_move_uci=str(
+                            stockfish_result[
+                                "best_move_uci"
+                            ]
+                        ),
+                        evaluation=str(
+                            stockfish_result[
+                                "evaluation"
+                            ]
+                        ),
+                        principal_variation=list(
+                            stockfish_result[
+                                "principal_variation_san"
+                            ]
+                        ),
+                        chat_history=(
+                            st.session_state.tutor_messages[
+                                :-1
+                            ]
+                        ),
+                        user_message=(
+                            user_message
+                        ),
+                    )
                 )
 
-                st.write(answer)
+                st.write(
+                    answer
+                )
 
         st.session_state.tutor_messages.append(
             {
@@ -689,25 +792,37 @@ def render_tutor_chat(
             f"Tutor request failed: {error}"
         )
 
+
 def render_tutor_setup() -> None:
     st.divider()
 
     with st.expander(
         "Board setup",
-        expanded=True,
+        expanded=(
+            "stockfish_result"
+            not in st.session_state
+        ),
     ):
-        first_column, second_column = st.columns(2)
+        first_column, second_column = (
+            st.columns(2)
+        )
 
         with first_column:
-            bottom_left_square = st.selectbox(
-                "Bottom-left square in the photo",
-                options=list(
-                    ORIENTATION_OPTIONS
-                ),
-                format_func=lambda value: (
-                    ORIENTATION_OPTIONS[value]
-                ),
-                key="bottom_left_square",
+            bottom_left_square = (
+                st.selectbox(
+                    "Bottom-left square in the photo",
+                    options=list(
+                        ORIENTATION_OPTIONS
+                    ),
+                    format_func=lambda value: (
+                        ORIENTATION_OPTIONS[
+                            value
+                        ]
+                    ),
+                    key=(
+                        "bottom_left_square"
+                    ),
+                )
             )
 
         with second_column:
@@ -717,7 +832,9 @@ def render_tutor_setup() -> None:
                     "White",
                     "Black",
                 ],
-                key="side_to_move",
+                key=(
+                    "side_to_move"
+                ),
             )
 
         start_tutor = st.button(
@@ -727,29 +844,37 @@ def render_tutor_setup() -> None:
         )
 
     if start_tutor:
-        oriented_matrix = orient_board_matrix(
-            st.session_state.board_matrix,
-            bottom_left_square,
+        oriented_matrix = (
+            orient_board_matrix(
+                st.session_state.board_matrix,
+                bottom_left_square,
+            )
         )
 
         result = validate_position(
             oriented_matrix,
             white_to_move=(
-                side_to_move == "White"
+                side_to_move
+                == "White"
             ),
         )
 
         st.session_state.validation_result = {
-            "fen": result.fen,
-            "is_valid": result.is_valid,
-            "status": result.status,
-            "issues": result.issues,
+            "fen":
+                result.fen,
+            "is_valid":
+                result.is_valid,
+            "status":
+                result.status,
+            "issues":
+                result.issues,
         }
 
         st.session_state.pop(
             "stockfish_result",
             None,
         )
+
         st.session_state.tutor_messages = []
 
         if result.is_valid:
@@ -757,8 +882,10 @@ def render_tutor_setup() -> None:
                 with st.spinner(
                     "Preparing the tutor..."
                 ):
-                    analysis = analyze_fen(
-                        result.fen
+                    analysis = (
+                        analyze_fen(
+                            result.fen
+                        )
                     )
 
                 st.session_state.stockfish_result = {
@@ -774,52 +901,69 @@ def render_tutor_setup() -> None:
                         analysis.principal_variation_san,
                 }
 
+                st.rerun()
+
             except Exception as error:
                 st.error(
-                    f"Could not prepare the tutor: {error}"
+                    "Could not prepare the tutor: "
+                    f"{error}"
                 )
+
                 return
 
-    validation_result = st.session_state.get(
-        "validation_result"
+    validation_result = (
+        st.session_state.get(
+            "validation_result"
+        )
     )
 
     if validation_result is None:
         return
 
-    if not validation_result["is_valid"]:
+    if not validation_result[
+        "is_valid"
+    ]:
         st.error(
-            "The position needs correction before tutoring."
+            "The position needs correction "
+            "before tutoring."
         )
 
-        for issue in validation_result["issues"]:
+        for issue in validation_result[
+            "issues"
+        ]:
             st.write(
                 f"• {issue}"
             )
 
         return
 
-    stockfish_result = st.session_state.get(
-        "stockfish_result"
+    stockfish_result = (
+        st.session_state.get(
+            "stockfish_result"
+        )
     )
 
     if stockfish_result is None:
         return
-
 
     render_tutor_chat(
         validation_result=validation_result,
         stockfish_result=stockfish_result,
     )
 
+
 def main() -> None:
     st.set_page_config(
-        page_title="Chess Vision Tutor",
+        page_title=(
+            "Chess Vision Tutor"
+        ),
         page_icon="♟️",
         layout="wide",
     )
 
-    st.title("Chess Vision Tutor")
+    st.title(
+        "Chess Vision Tutor"
+    )
 
     st.write(
         "Upload a board photo, correct uncertain squares, "
@@ -839,6 +983,7 @@ def main() -> None:
         st.info(
             "Upload an image to begin."
         )
+
         return
 
     try:
@@ -848,8 +993,10 @@ def main() -> None:
 
     except Exception as error:
         st.error(
-            f"Could not process the image: {error}"
+            f"Could not process the image: "
+            f"{error}"
         )
+
         return
 
     left_column, right_column = st.columns(
@@ -858,7 +1005,9 @@ def main() -> None:
     )
 
     with left_column:
-        st.subheader("Original Image")
+        st.subheader(
+            "Original Image"
+        )
 
         st.image(
             uploaded_image.getvalue(),
@@ -866,21 +1015,31 @@ def main() -> None:
         )
 
     with right_column:
-        st.subheader("Digital Board")
+        st.subheader(
+            "Digital Board"
+        )
 
         clicked_square = render_board(
             st.session_state.board_matrix,
             st.session_state.status_matrix,
         )
 
-        if clicked_square is not None:
-            clicked_row, clicked_column = (
-                clicked_square
-            )
+        if (
+            clicked_square
+            is not None
+        ):
+            (
+                clicked_row,
+                clicked_column,
+            ) = clicked_square
 
             clicked_position = (
-                int(clicked_row),
-                int(clicked_column),
+                int(
+                    clicked_row
+                ),
+                int(
+                    clicked_column
+                ),
             )
 
             suppressed_click = (
@@ -889,7 +1048,10 @@ def main() -> None:
                 )
             )
 
-            if clicked_position != suppressed_click:
+            if (
+                clicked_position
+                != suppressed_click
+            ):
                 st.session_state.pop(
                     "suppressed_board_click",
                     None,
@@ -904,10 +1066,12 @@ def main() -> None:
                     st.session_state.selected_square = (
                         clicked_position
                     )
+
                     st.session_state.pop(
                         "manual_review_square",
                         None,
                     )
+
                     st.rerun()
 
         warning_count = len(
@@ -916,18 +1080,21 @@ def main() -> None:
 
         if warning_count > 0:
             if st.button(
-                f"Confirm all {warning_count} warnings",
+                f"Confirm all "
+                f"{warning_count} warnings",
                 width="stretch",
-                key="confirm_all_warnings",
+                key=(
+                    "confirm_all_warnings"
+                ),
             ):
                 confirm_all_warnings()
+
                 st.rerun()
 
         render_square_editor()
 
     render_tutor_setup()
 
-    
 
 if __name__ == "__main__":
     main()

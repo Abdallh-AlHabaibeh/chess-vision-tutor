@@ -1,6 +1,6 @@
 """Core chessboard detection and perspective warping utilities.
 
-This module is responsible only for:
+This module is responsible for:
 
 - Loading an image.
 - Resizing an image.
@@ -21,7 +21,9 @@ import cv2
 import numpy as np
 
 
-def load_image(image_path: str | Path) -> np.ndarray:
+def load_image(
+    image_path: str | Path,
+) -> np.ndarray:
     image_path = Path(image_path)
 
     if not image_path.exists():
@@ -190,6 +192,15 @@ def order_board_corners(
     2. Top-right.
     3. Bottom-right.
     4. Bottom-left.
+
+    Points are first ordered cyclically around their centroid.
+    The cycle is then anchored at the image-space top-left point.
+
+    The direction is determined using the neighbouring points'
+    vertical positions rather than their horizontal positions.
+    This avoids reflected perspective transforms on strongly
+    angled boards where the bottom-left corner can appear farther
+    right than the top-right corner.
     """
     if contour is None or contour.size != 8:
         raise ValueError(
@@ -200,35 +211,56 @@ def order_board_corners(
         np.float32
     )
 
-    ordered_points = np.zeros(
-        (4, 2),
-        dtype=np.float32,
+    unique_points = np.unique(
+        points,
+        axis=0,
     )
 
-    coordinate_sums = points.sum(axis=1)
+    if len(unique_points) != 4:
+        raise ValueError(
+            "Board contour must contain four unique points."
+        )
 
-    coordinate_differences = np.diff(
+    center = np.mean(
         points,
-        axis=1,
-    ).reshape(-1)
+        axis=0,
+    )
 
-    ordered_points[0] = points[
-        np.argmin(coordinate_sums)
+    angles = np.arctan2(
+        points[:, 1] - center[1],
+        points[:, 0] - center[0],
+    )
+
+    cyclic_points = points[
+        np.argsort(angles)
     ]
 
-    ordered_points[2] = points[
-        np.argmax(coordinate_sums)
-    ]
+    # Choose the image-space top-left corner as the
+    # starting point while preserving the cyclic polygon.
+    start_index = int(
+        np.argmin(
+            cyclic_points.sum(axis=1)
+        )
+    )
 
-    ordered_points[1] = points[
-        np.argmin(coordinate_differences)
-    ]
+    ordered_points = np.roll(
+        cyclic_points,
+        -start_index,
+        axis=0,
+    )
 
-    ordered_points[3] = points[
-        np.argmax(coordinate_differences)
-    ]
+    # After top-left, the neighboring points should be top-right and bottom-left.
+    # Reverse the polygon direction if their vertical order is flipped.
+    
+    if ordered_points[1, 1] > ordered_points[3, 1]:
+        ordered_points = ordered_points[
+            [0, 3, 2, 1]
+        ]
 
-    return ordered_points
+    return ordered_points.astype(
+        np.float32
+    )
+
 
 def create_board_transform(
     contour: np.ndarray,
@@ -263,6 +295,7 @@ def create_board_transform(
         source_points,
         destination_points,
     )
+
 
 def warp_board(
     image: np.ndarray,

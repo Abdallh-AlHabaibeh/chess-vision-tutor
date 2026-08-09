@@ -33,15 +33,19 @@ from chess_vision_tutor.visualization import (
     draw_supported_grid_positions,
 )
 
-
-DEFAULT_SQUARE_OUTPUT_DIR = Path("data/processed/squares")
+DEFAULT_SQUARE_OUTPUT_DIR = Path(
+    "data/processed/squares"
+)
 
 
 def display_debug_images(
     images: dict[str, np.ndarray],
 ) -> None:
     for window_name, image in images.items():
-        cv2.imshow(window_name, image)
+        cv2.imshow(
+            window_name,
+            image,
+        )
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -54,10 +58,21 @@ def process_board_image(
     save_squares: bool = False,
     square_output_dir: str | Path = DEFAULT_SQUARE_OUTPUT_DIR,
     return_metadata: bool = False,
-) -> np.ndarray | tuple[np.ndarray, dict[str, object]]:
-    image = load_image(image_path)
-    resized_image = resize_image(image)
-    processed_image = preprocess_image(resized_image)
+) -> (
+    np.ndarray
+    | tuple[np.ndarray, dict[str, object]]
+):
+    image = load_image(
+        image_path
+    )
+
+    resized_image = resize_image(
+        image
+    )
+
+    processed_image = preprocess_image(
+        resized_image
+    )
 
     board_contour = detect_board_contour(
         processed_image
@@ -68,9 +83,11 @@ def process_board_image(
             "No chessboard contour was detected."
         )
 
-    transform_matrix = create_board_transform(
-        board_contour
-    )   
+    transform_matrix = (
+        create_board_transform(
+            board_contour
+        )
+    )
 
     warped_board = warp_board(
         resized_image,
@@ -97,34 +114,20 @@ def process_board_image(
     )
 
     has_reliable_internal_grid = (
-        len(regular_vertical_positions) == 7
-        and len(regular_horizontal_positions) == 7
+        len(
+            regular_vertical_positions
+        )
+        == 7
+        and len(
+            regular_horizontal_positions
+        )
+        == 7
     )
 
     if not has_reliable_internal_grid:
-        if debug:
-            debug_images = {
-                "Original Image": resized_image,
-                "Detected Edges": processed_image,
-                "Detected Chessboard Contour": (
-                    draw_board_contour(
-                        resized_image,
-                        board_contour,
-                    )
-                ),
-                "Warped Chessboard": warped_board,
-                "Checkerboard Corner Candidates": (
-                    draw_checkerboard_corner_candidates(
-                        warped_board,
-                        corner_candidates,
-                    )
-                ),
-            }
-
-            display_debug_images(debug_images)
-
         raise RuntimeError(
-            "Could not detect a reliable 7x7 internal grid."
+            "Could not detect a reliable "
+            "7x7 internal grid."
         )
 
     (
@@ -143,17 +146,23 @@ def process_board_image(
         complete_horizontal_boundaries,
     )
 
-    playable_bounds = get_playable_board_bounds(
-    warped_board,
-    complete_vertical_boundaries,
-    complete_horizontal_boundaries,
+    playable_bounds = (
+        get_playable_board_bounds(
+            warped_board,
+            complete_vertical_boundaries,
+            complete_horizontal_boundaries,
+        )
     )
 
-    board_squares: dict[str, np.ndarray] | None = None
+    board_squares: (
+        dict[str, np.ndarray] | None
+    ) = None
 
     if save_squares:
-        board_squares = extract_board_squares(
-            playable_board
+        board_squares = (
+            extract_board_squares(
+                playable_board
+            )
         )
 
         save_square_crops(
@@ -163,95 +172,118 @@ def process_board_image(
 
     if debug:
         debug_images = {
-            "Original Image": resized_image,
-            "Detected Edges": processed_image,
-            "Detected Chessboard Contour": (
+            "Original Image":
+                resized_image,
+            "Detected Edges":
+                processed_image,
+            "Detected Chessboard Contour":
                 draw_board_contour(
                     resized_image,
                     board_contour,
-                )
-            ),
-            "Warped Chessboard": warped_board,
-            "Checkerboard Corner Candidates": (
+                ),
+            "Warped Chessboard":
+                warped_board,
+            "Checkerboard Corner Candidates":
                 draw_checkerboard_corner_candidates(
                     warped_board,
                     corner_candidates,
-                )
-            ),
-            "Supported Grid Positions": (
+                ),
+            "Supported Grid Positions":
                 draw_supported_grid_positions(
                     warped_board,
                     supported_vertical_positions,
                     supported_horizontal_positions,
-                )
-            ),
-            "Regular Grid Positions": (
+                ),
+            "Regular Grid Positions":
                 draw_regular_grid_positions(
                     warped_board,
                     regular_vertical_positions,
                     regular_horizontal_positions,
-                )
-            ),
-            "Complete 9x9 Grid": (
+                ),
+            "Complete 9x9 Grid":
                 draw_complete_grid_boundaries(
                     warped_board,
                     complete_vertical_boundaries,
                     complete_horizontal_boundaries,
-                )
-            ),
-            "Cropped Playable Board": playable_board,
+                ),
+            "Cropped Playable Board":
+                playable_board,
         }
 
         if board_squares is not None:
             debug_images.update(
                 {
-                    "Square a8": board_squares["a8"],
-                    "Square h8": board_squares["h8"],
-                    "Square a1": board_squares["a1"],
-                    "Square h1": board_squares["h1"],
+                    "Square a8":
+                        board_squares["a8"],
+                    "Square h8":
+                        board_squares["h8"],
+                    "Square a1":
+                        board_squares["a1"],
+                    "Square h1":
+                        board_squares["h1"],
                 }
             )
 
-        print(f"Input image: {image_path}")
-        print(f"Original shape: {image.shape}")
-        print(f"Resized shape: {resized_image.shape}")
+        print(
+            f"Input image: {image_path}"
+        )
+
+        print(
+            f"Original shape: "
+            f"{image.shape}"
+        )
+
+        print(
+            f"Resized shape: "
+            f"{resized_image.shape}"
+        )
+
         print(
             "Detected outer corners: "
             f"{board_contour.reshape(4, 2)}"
         )
+
         print(
             "Checkerboard corner candidates: "
             f"{len(corner_candidates)}"
         )
+
         print(
-            "Complete vertical boundaries: "
-            f"{complete_vertical_boundaries}"
+            "Grid detection mode: strict"
         )
+
         print(
-            "Complete horizontal boundaries: "
-            f"{complete_horizontal_boundaries}"
+            "Playable bounds: "
+            f"{playable_bounds}"
         )
+
         print(
-            f"Playable board shape: "
+            "Playable board shape: "
             f"{playable_board.shape}"
         )
 
-        if board_squares is not None:
-            print(
-                f"Saved square crops: "
-                f"{len(board_squares)}"
-            )
-
-        display_debug_images(debug_images)
+        display_debug_images(
+            debug_images
+        )
 
     if return_metadata:
         metadata = {
-            "resized_image": resized_image,
-            "transform_matrix": transform_matrix,
-            "playable_bounds": playable_bounds,
+            "resized_image":
+                resized_image,
+            "transform_matrix":
+                transform_matrix,
+            "playable_bounds":
+                playable_bounds,
+            "used_grid_fallback":
+                False,
+            "grid_detection_mode":
+                "strict",
         }
 
-        return playable_board, metadata
+        return (
+            playable_board,
+            metadata,
+        )
 
     return playable_board
 
@@ -259,7 +291,8 @@ def process_board_image(
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Detect and normalize a chessboard from an image."
+            "Detect and normalize a "
+            "chessboard from an image."
         )
     )
 
@@ -291,26 +324,33 @@ def main() -> None:
     arguments = parse_arguments()
 
     try:
-        playable_board = process_board_image(
-            arguments.image_path,
-            debug=arguments.debug,
-            save_squares=arguments.save_squares,
-            square_output_dir=(
-                arguments.square_output_dir
-            ),
+        playable_board = (
+            process_board_image(
+                arguments.image_path,
+                debug=arguments.debug,
+                save_squares=(
+                    arguments.save_squares
+                ),
+                square_output_dir=(
+                    arguments.square_output_dir
+                ),
+            )
         )
+
     except (
         FileNotFoundError,
         ValueError,
         RuntimeError,
     ) as error:
         raise SystemExit(
-            f"Board processing failed: {error}"
+            f"Board processing failed: "
+            f"{error}"
         ) from error
 
     print(
         "Board processed successfully. "
-        f"Normalized shape: {playable_board.shape}"
+        f"Normalized shape: "
+        f"{playable_board.shape}"
     )
 
 

@@ -14,10 +14,10 @@ from chess_vision_tutor.yolo_board_inference import (
 
 
 EMPTY_CLASS = 12
-CONFIDENCE_THRESHOLD = 0.70
 
-VERY_HIGH_CONFIDENCE = 0.991
-TOP_THREE_SUPPORT_MIN_CONFIDENCE = 0.10
+YOLO_CONFIDENCE_THRESHOLD = 0.70
+RESNET18_VERY_HIGH_CONFIDENCE = 0.991
+RESNET18_TOP_THREE_SUPPORT_MIN_CONFIDENCE = 0.10
 
 DEFAULT_YOLO_MODEL = Path(
     "runs/detect/outputs/yolo_15_epochs/"
@@ -26,19 +26,34 @@ DEFAULT_YOLO_MODEL = Path(
 
 
 def compare_predictions(
-    model_1_prediction: np.ndarray,
-    model_1_confidence: np.ndarray,
-    model_1_top_predictions: np.ndarray,
-    model_1_top_confidences: np.ndarray,
-    model_2_prediction: np.ndarray,
-    model_2_confidence: np.ndarray,
+    resnet18_prediction: np.ndarray,
+    resnet18_confidence: np.ndarray,
+    resnet18_top_predictions: np.ndarray,
+    resnet18_top_confidences: np.ndarray,
+    yolo_prediction: np.ndarray,
+    yolo_confidence: np.ndarray,
 ) -> tuple[
     np.ndarray,
     np.ndarray,
     list[dict[str, object]],
     list[dict[str, object]],
 ]:
-    proposed_matrix = model_1_prediction.copy()
+    """Combine YOLO and ResNet18 predictions.
+
+    YOLO is the primary recognition model.
+
+    ResNet18 is retained as a secondary support and disagreement
+    signal. It does not automatically override YOLO predictions.
+
+    Status values:
+
+    0 = accepted
+    1 = warning
+    2 = requires human review
+    """
+
+    # YOLO is the primary prediction source.
+    proposed_matrix = yolo_prediction.copy()
 
     status_matrix = np.zeros(
         (8, 8),
@@ -55,99 +70,131 @@ def compare_predictions(
 
     for row in range(8):
         for column in range(8):
-            model_1_class = int(
-                model_1_prediction[row, column]
+            resnet18_class = int(
+                resnet18_prediction[
+                    row,
+                    column,
+                ]
             )
 
-            model_2_class = int(
-                model_2_prediction[row, column]
+            yolo_class = int(
+                yolo_prediction[
+                    row,
+                    column,
+                ]
             )
 
-            model_1_score = float(
-                model_1_confidence[row, column]
+            resnet18_score = float(
+                resnet18_confidence[
+                    row,
+                    column,
+                ]
             )
 
-            model_2_score = float(
-                model_2_confidence[row, column]
+            yolo_score = float(
+                yolo_confidence[
+                    row,
+                    column,
+                ]
             )
 
-            top_classes = [
+            resnet18_top_classes = [
                 int(value)
-                for value in model_1_top_predictions[
+                for value in resnet18_top_predictions[
                     row,
                     column,
                 ]
             ]
 
-            top_confidences = [
+            resnet18_top_confidence_values = [
                 float(value)
-                for value in model_1_top_confidences[
+                for value in resnet18_top_confidences[
                     row,
                     column,
                 ]
             ]
 
-            model_1_empty = (
-                model_1_class == EMPTY_CLASS
+            resnet18_empty = (
+                resnet18_class
+                == EMPTY_CLASS
             )
 
-            model_2_empty = (
-                model_2_class == EMPTY_CLASS
+            yolo_empty = (
+                yolo_class
+                == EMPTY_CLASS
             )
 
-            model_1_very_confident = (
-                model_1_score
-                >= VERY_HIGH_CONFIDENCE
+            resnet18_very_confident = (
+                resnet18_score
+                >= RESNET18_VERY_HIGH_CONFIDENCE
             )
 
-            model_2_very_confident = (
-                not model_2_empty
-                and model_2_score
-                >= VERY_HIGH_CONFIDENCE
+            yolo_confident = (
+                not yolo_empty
+                and yolo_score
+                >= YOLO_CONFIDENCE_THRESHOLD
             )
 
-            model_2_top_three_support = 0.0
+            yolo_resnet18_support = 0.0
 
-            if model_2_class in top_classes:
-                model_2_index = top_classes.index(
-                    model_2_class
+            if (
+                yolo_class
+                in resnet18_top_classes
+            ):
+                support_index = (
+                    resnet18_top_classes.index(
+                        yolo_class
+                    )
                 )
 
-                model_2_top_three_support = (
-                    top_confidences[
-                        model_2_index
+                yolo_resnet18_support = (
+                    resnet18_top_confidence_values[
+                        support_index
                     ]
                 )
 
-            model_2_matches_supported_candidate = (
-                not model_2_empty
-                and model_2_class in top_classes
-                and model_2_score
-                >= CONFIDENCE_THRESHOLD
-                and model_2_top_three_support
-                >= TOP_THREE_SUPPORT_MIN_CONFIDENCE
+            resnet18_supports_yolo = (
+                yolo_class
+                in resnet18_top_classes
+                and yolo_resnet18_support
+                >= RESNET18_TOP_THREE_SUPPORT_MIN_CONFIDENCE
             )
 
             item = {
-                "row": row,
-                "column": column,
-                "model_1_class": model_1_class,
-                "model_1_confidence": model_1_score,
-                "model_1_top_classes": top_classes,
-                "model_1_top_confidences": (
-                    top_confidences
-                ),
-                "model_2_class": model_2_class,
-                "model_2_confidence": model_2_score,
+                "row":
+                    row,
+                "column":
+                    column,
+                "resnet18_class":
+                    resnet18_class,
+                "resnet18_confidence":
+                    resnet18_score,
+                "resnet18_top_classes":
+                    resnet18_top_classes,
+                "resnet18_top_confidences":
+                    resnet18_top_confidence_values,
+                "yolo_class":
+                    yolo_class,
+                "yolo_confidence":
+                    yolo_score,
             }
 
-            if model_1_empty and model_2_empty:
-                if (
-                    model_1_score
-                    < CONFIDENCE_THRESHOLD
-                ):
+            if (
+                resnet18_class
+                == yolo_class
+            ):
+                continue
+
+            
+            if yolo_confident:
+                if resnet18_supports_yolo:
+                    # ResNet18 disagrees, but still gives meaningful support to YOLO's class.
+                    continue
+
+                if resnet18_very_confident:
                     item["reasons"] = [
-                        "low Model 1 empty confidence"
+                        "YOLO is confident, but "
+                        "ResNet18 strongly disagrees"
                     ]
 
                     warning_squares.append(
@@ -161,69 +208,67 @@ def compare_predictions(
 
                 continue
 
-            if (
-                model_1_class
-                == model_2_class
-            ):
-                proposed_matrix[
-                    row,
-                    column,
-                ] = model_1_class
-
-                continue
-
-            if (
-                model_1_very_confident
-                and model_2_very_confident
-            ):
-                item["reasons"] = [
-                    "both models are extremely "
-                    "confident but disagree"
-                ]
-
-                required_review_squares.append(
-                    item
-                )
-
-                status_matrix[
-                    row,
-                    column,
-                ] = 2
-
-                continue
-
-            if model_1_very_confident:
-                proposed_matrix[
-                    row,
-                    column,
-                ] = model_1_class
-
-                continue
-
-            if model_2_very_confident:
-                proposed_matrix[
-                    row,
-                    column,
-                ] = model_2_class
-
-                continue
-
-            if (
-                not model_1_empty
-                and model_2_empty
-            ):
-                proposed_matrix[
-                    row,
-                    column,
-                ] = model_1_class
-
-                if (
-                    model_1_score
-                    < CONFIDENCE_THRESHOLD
-                ):
+            # YOLO detected a piece, but with lower confidence.
+            if not yolo_empty:
+                if resnet18_supports_yolo:
                     item["reasons"] = [
-                        "Model 2 missed the piece "
-                        "and Model 1 confidence is low"
+                        "YOLO confidence is below "
+                        "the primary threshold, but "
+                        "ResNet18 supports the class"
+                    ]
+
+                    warning_squares.append(
+                        item
+                    )
+
+                    status_matrix[
+                        row,
+                        column,
+                    ] = 1
+
+                else:
+                    item["reasons"] = [
+                        "YOLO detected a low-confidence "
+                        "piece without meaningful "
+                        "ResNet18 support"
+                    ]
+
+                    required_review_squares.append(
+                        item
+                    )
+
+                    status_matrix[
+                        row,
+                        column,
+                    ] = 2
+
+                continue
+
+            # YOLO predicts empty while ResNet18 detects a piece.
+            # Surface the disagreement for review instead of overriding YOLO.
+            if (
+                yolo_empty
+                and not resnet18_empty
+            ):
+                if resnet18_very_confident:
+                    item["reasons"] = [
+                        "YOLO detected no piece, but "
+                        "ResNet18 strongly predicts one"
+                    ]
+
+                    required_review_squares.append(
+                        item
+                    )
+
+                    status_matrix[
+                        row,
+                        column,
+                    ] = 2
+
+                else:
+                    item["reasons"] = [
+                        "YOLO detected no piece while "
+                        "ResNet18 predicts a piece"
                     ]
 
                     warning_squares.append(
@@ -236,62 +281,6 @@ def compare_predictions(
                     ] = 1
 
                 continue
-
-            if model_2_matches_supported_candidate:
-                proposed_matrix[
-                    row,
-                    column,
-                ] = model_2_class
-
-                item["reasons"] = [
-                    "Model 2 matches a supported "
-                    "Model 1 top-three candidate"
-                ]
-
-                warning_squares.append(
-                    item
-                )
-
-                status_matrix[
-                    row,
-                    column,
-                ] = 1
-
-                continue
-
-            if (
-                model_1_empty
-                and not model_2_empty
-            ):
-                item["reasons"] = [
-                    "Model 2 detected a piece "
-                    "without meaningful Model 1 support"
-                ]
-
-                required_review_squares.append(
-                    item
-                )
-
-                status_matrix[
-                    row,
-                    column,
-                ] = 2
-
-                continue
-
-            item["reasons"] = [
-                "models support different "
-                "occupied-piece classes"
-            ]
-
-            required_review_squares.append(
-                item
-            )
-
-            status_matrix[
-                row,
-                column,
-            ] = 2
 
     return (
         proposed_matrix,
@@ -311,28 +300,29 @@ def run_ensemble(
     list[dict[str, object]],
 ]:
     (
-        model_1_prediction,
-        model_1_confidence,
-        model_1_top_predictions,
-        model_1_top_confidences,
+        resnet18_prediction,
+        resnet18_confidence,
+        resnet18_top_predictions,
+        resnet18_top_confidences,
     ) = predict_board(
         image_path
     )
 
-    model_2_prediction, model_2_confidence = (
-        predict_yolo_board(
-            image_path,
-            yolo_model_path,
-        )
+    (
+        yolo_prediction,
+        yolo_confidence,
+    ) = predict_yolo_board(
+        image_path,
+        yolo_model_path,
     )
 
     return compare_predictions(
-        model_1_prediction,
-        model_1_confidence,
-        model_1_top_predictions,
-        model_1_top_confidences,
-        model_2_prediction,
-        model_2_confidence,
+        resnet18_prediction,
+        resnet18_confidence,
+        resnet18_top_predictions,
+        resnet18_top_confidences,
+        yolo_prediction,
+        yolo_confidence,
     )
 
 
@@ -350,11 +340,19 @@ def print_ensemble_results(
         yolo_model_path,
     )
 
-    print("\nProposed matrix:")
-    print(proposed_matrix)
+    print(
+        "\nProposed matrix:"
+    )
+    print(
+        proposed_matrix
+    )
 
-    print("\nStatus matrix:")
-    print(status_matrix)
+    print(
+        "\nStatus matrix:"
+    )
+    print(
+        status_matrix
+    )
 
     print(
         f"\nWarning squares: "
@@ -367,16 +365,44 @@ def print_ensemble_results(
         )
 
         print(
-            f"row={item['row']}, "
-            f"column={item['column']} | "
-            f"Model 1={item['model_1_class']} "
-            f"({item['model_1_confidence']:.2%}) | "
-            f"Model 1 second="
-            f"{item['model_1_top_classes'][1]} "
-            f"({item['model_1_top_confidences'][1]:.2%}) | "
-            f"Model 2={item['model_2_class']} "
-            f"({item['model_2_confidence']:.2%}) | "
-            f"{reasons}"
+            f"\nrow={item['row']}, "
+            f"column={item['column']}"
+        )
+
+        print(
+            "ResNet18 top 3:"
+        )
+
+        for rank, (
+            piece_class,
+            confidence,
+        ) in enumerate(
+            zip(
+                item[
+                    "resnet18_top_classes"
+                ],
+                item[
+                    "resnet18_top_confidences"
+                ],
+            ),
+            start=1,
+        ):
+            print(
+                f"  {rank}. "
+                f"class={piece_class} | "
+                f"confidence="
+                f"{confidence:.2%}"
+            )
+
+        print(
+            "YOLO11: "
+            f"class={item['yolo_class']} | "
+            f"confidence="
+            f"{item['yolo_confidence']:.2%}"
+        )
+
+        print(
+            f"Reason: {reasons}"
         )
 
     print(
@@ -389,21 +415,13 @@ def print_ensemble_results(
             item["reasons"]
         )
 
-        top_classes = item[
-            "model_1_top_classes"
-        ]
-
-        top_confidences = item[
-            "model_1_top_confidences"
-        ]
-
         print(
             f"\nrow={item['row']}, "
             f"column={item['column']}"
         )
 
         print(
-            "Model 1 top 3:"
+            "ResNet18 top 3:"
         )
 
         for rank, (
@@ -411,21 +429,27 @@ def print_ensemble_results(
             confidence,
         ) in enumerate(
             zip(
-                top_classes,
-                top_confidences,
+                item[
+                    "resnet18_top_classes"
+                ],
+                item[
+                    "resnet18_top_confidences"
+                ],
             ),
             start=1,
         ):
             print(
-                f"  {rank}. class={piece_class} | "
-                f"confidence={confidence:.2%}"
+                f"  {rank}. "
+                f"class={piece_class} | "
+                f"confidence="
+                f"{confidence:.2%}"
             )
 
         print(
-            f"Model 2: "
-            f"class={item['model_2_class']} | "
+            "YOLO11: "
+            f"class={item['yolo_class']} | "
             f"confidence="
-            f"{item['model_2_confidence']:.2%}"
+            f"{item['yolo_confidence']:.2%}"
         )
 
         print(
