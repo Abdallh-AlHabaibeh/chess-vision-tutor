@@ -2,15 +2,39 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import shutil
 
 import chess
 import chess.engine
 
 
-DEFAULT_STOCKFISH_PATH = Path(
-    "engines/stockfish/"
-    "stockfish-windows-x86-64-avx2.exe"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+LOCAL_STOCKFISH_PATH = (
+    PROJECT_ROOT
+    / "engines"
+    / "stockfish"
+    / "stockfish-windows-x86-64-avx2.exe"
 )
+
+
+def find_stockfish_path() -> Path:
+    system_stockfish = shutil.which("stockfish")
+
+    if system_stockfish:
+        return Path(system_stockfish)
+
+    linux_stockfish = Path("/usr/games/stockfish")
+
+    if linux_stockfish.exists():
+        return linux_stockfish
+
+    if LOCAL_STOCKFISH_PATH.exists():
+        return LOCAL_STOCKFISH_PATH
+
+    raise FileNotFoundError(
+        "Stockfish executable could not be found."
+    )
 
 
 @dataclass
@@ -72,10 +96,13 @@ def variation_to_san(
 
 def analyze_fen(
     fen: str,
-    engine_path: Path = DEFAULT_STOCKFISH_PATH,
+    engine_path: Path | None = None,
     depth: int = 16,
     variation_length: int = 8,
 ) -> StockfishAnalysis:
+    if engine_path is None:
+        engine_path = find_stockfish_path()
+
     if not engine_path.exists():
         raise FileNotFoundError(
             f"Stockfish executable not found: "

@@ -1,0 +1,10 @@
+-e ..
+google-genai>=2.16.0
+numpy>=2.5.1
+opencv-python-headless>=5.0.0.93
+python-chess>=1.999
+streamlit>=1.60.0
+streamlit-image-coordinates>=0.4.0
+torch
+torchvision
+ultralytics>=8.4.107

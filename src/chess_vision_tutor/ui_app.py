@@ -49,6 +49,35 @@ ORIENTATION_OPTIONS = {
 }
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+EXAMPLE_1_PATH = (
+    PROJECT_ROOT
+    / "demo"
+    / "examples"
+    / "example_1.jpg"
+)
+
+EXAMPLE_2_PATH = (
+    PROJECT_ROOT
+    / "demo"
+    / "examples"
+    / "example_2.jpg"
+)
+
+
+class LocalImageFile:
+    def __init__(
+        self,
+        path: Path,
+    ) -> None:
+        self.path = path
+        self.name = path.name
+
+    def getvalue(self) -> bytes:
+        return self.path.read_bytes()
+
+
 def orient_board_matrix(
     board_matrix: list[list[int]],
     bottom_left_square: str,
@@ -979,9 +1008,54 @@ def main() -> None:
         ],
     )
 
+    st.caption(
+        "Or try one of the pre selected examples"
+    )
+
+    example_column_1, example_column_2 = (
+        st.columns(2)
+    )
+
+    with example_column_1:
+        if st.button(
+            "Example 1",
+            width="stretch",
+            key="example_1",
+        ):
+            st.session_state.example_image_path = (
+                str(EXAMPLE_1_PATH)
+            )
+
+    with example_column_2:
+        if st.button(
+            "Example 2",
+            width="stretch",
+            key="example_2",
+        ):
+            st.session_state.example_image_path = (
+                str(EXAMPLE_2_PATH)
+            )
+
+    if uploaded_image is not None:
+        st.session_state.pop(
+            "example_image_path",
+            None,
+        )
+
+    elif (
+        "example_image_path"
+        in st.session_state
+    ):
+        uploaded_image = LocalImageFile(
+            Path(
+                st.session_state.example_image_path
+            )
+        )
+
     if uploaded_image is None:
         st.info(
-            "Upload an image to begin."
+            "Upload an image or choose an example "
+            "to begin."
         )
 
         return

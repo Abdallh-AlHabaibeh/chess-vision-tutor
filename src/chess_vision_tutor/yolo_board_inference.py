@@ -39,7 +39,7 @@ def predict_yolo_board(
         conf=0.25,
         iou=0.5,
         agnostic_nms=True,
-        device=0,
+        device="cpu",
         verbose=False,
     )
 
