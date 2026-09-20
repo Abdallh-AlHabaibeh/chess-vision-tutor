@@ -36,6 +36,24 @@ models/
 runs/
 *.pt
 
+!models/
+models/*
+!models/grid_classifier_spatial.pt
+
+!runs/
+runs/*
+!runs/detect/
+runs/detect/*
+!runs/detect/outputs/
+runs/detect/outputs/*
+!runs/detect/outputs/yolo_15_epochs/
+runs/detect/outputs/yolo_15_epochs/*
+!runs/detect/outputs/yolo_15_epochs/chess_piece_detector/
+runs/detect/outputs/yolo_15_epochs/chess_piece_detector/*
+!runs/detect/outputs/yolo_15_epochs/chess_piece_detector/weights/
+runs/detect/outputs/yolo_15_epochs/chess_piece_detector/weights/*
+!runs/detect/outputs/yolo_15_epochs/chess_piece_detector/weights/best.pt
+
 # Local secrets
 .streamlit/secrets.toml
 
